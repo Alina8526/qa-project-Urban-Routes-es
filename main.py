@@ -13,6 +13,16 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver import DesiredCapabilities
 from selenium.common import WebDriverException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
+import json
+from selenium.common.exceptions import WebDriverException
+from selenium import webdriver
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+import time
+
 
 # no modificar
 def retrieve_phone_code(driver) -> str:
@@ -39,20 +49,20 @@ def retrieve_phone_code(driver) -> str:
                             "Utiliza 'retrieve_phone_code' solo después de haber solicitado el código en tu aplicación.")
         return code
 
-
+#Cambios usando los tres selectores
 class UrbanRoutesPage:
-    from_field = (By.ID, 'from')
-    to_field = (By.ID, 'to')
-    tarifa_comfort_option = (By.ID, 'comfort')
-    telefono_input = (By.ID, 'telefono')
-    agregar_tarjeta_button = (By.ID, 'add-card-btn')
-    cvv_input = (By.ID, 'code')  # Suponiendo que el campo CVV tiene id='code'
-    mensaje_input = (By.ID, 'mensaje')
-    manta_checkbox = (By.ID, 'manta')
-    pañuelos_checkbox = (By.ID, 'pañuelos')
-    helados_input = (By.ID, 'helados')
-    buscar_taxi_modal = (By.ID, 'buscar-taxi-modal')
-    info_conductor = (By.ID, 'info-conductor')
+    from_field = (By.ID, 'from')  # Selector por ID
+    to_field = (By.ID, 'to')  # Selector por ID
+    tarifa_comfort_option = (By.ID, 'comfort')  # Selector por ID
+    telefono_input = (By.ID, 'telefono')  # Selector por ID
+    agregar_tarjeta_button = (By.ID, 'add-card-btn')  # Selector por ID
+    cvv_input = (By.ID, 'code')  # Selector por ID
+    mensaje_input = (By.CSS_SELECTOR, '#mensaje')  # Selector por CSS
+    manta_checkbox = (By.CLASS_NAME, 'manta')  # Selector por ClassName
+    pañuelos_checkbox = (By.XPATH, '//input[@id="pañuelos"]')  # Selector por XPath
+    helados_input = (By.XPATH, '//*[@id="helados"]')  # Selector por XPath
+    buscar_taxi_modal = (By.CSS_SELECTOR, '#buscar-taxi-modal')  # Selector por CSS
+    info_conductor = (By.CLASS_NAME, 'info-conductor')  # Selector por ClassName
 
     def __init__(self, driver):
         self.driver = driver
@@ -91,13 +101,15 @@ class UrbanRoutesPage:
     def pedir_helados(self, cantidad):
         helados_input = self.driver.find_element(*self.helados_input)
         helados_input.send_keys(str(cantidad))
-
+#Cambios
     def esperar_modal_taxi(self):
-        time.sleep(2)  # Esperar a que aparezca el modal
+        # Espera inteligente en lugar de time.sleep
+        WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located(self.buscar_taxi_modal))
         return self.driver.find_element(*self.buscar_taxi_modal).is_displayed()
 
     def esperar_info_conductor(self):
-        time.sleep(2)  # Esperar a que se muestre la información del conductor
+        # Espera inteligente para la info del conductor
+        WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located(self.info_conductor))
         return self.driver.find_element(*self.info_conductor).is_displayed()
 
 
@@ -113,50 +125,84 @@ class TestUrbanRoutes:
         capabilities = DesiredCapabilities.CHROME
         capabilities["goog:loggingPrefs"] = {'performance': 'ALL'}
         cls.driver = webdriver.Chrome(desired_capabilities=capabilities)
-
-    def test_set_route(self):
-        self.driver.get(data.urban_routes_url)
+#Cambios
+    def test_set_from(self):
+        self.driver.get("URL_DE_TU_APLICACION")
         routes_page = UrbanRoutesPage(self.driver)
-        address_from = data.address_from
-        address_to = data.address_to
-        routes_page.set_route(address_from, address_to)
         address_from = "Calle Falsa 123"
-        address_to = "Avenida Siempre Viva 456"
         routes_page.set_from(address_from)
-        routes_page.set_to(address_to)
-
         assert routes_page.get_from() == address_from
+
+    def test_set_to(self):
+        self.driver.get("URL_DE_TU_APLICACION")
+        routes_page = UrbanRoutesPage(self.driver)
+        address_to = "Avenida Siempre Viva 456"
+        routes_page.set_to(address_to)
         assert routes_page.get_to() == address_to
 
-        # Paso 2: Seleccionar tarifa Comfort
+    def test_select_tarifa_comfort(self):
+        self.driver.get("URL_DE_TU_APLICACION")
+        routes_page = UrbanRoutesPage(self.driver)
         routes_page.select_tarifa_comfort()
+        # Verifica que la tarifa Comfort esté seleccionada correctamente (puedes verificar si el estado de un checkbox o un elemento cambia)
+        comfort_selected = self.driver.find_element(*self.tarifa_comfort_option).is_selected()
+        assert comfort_selected, "La tarifa Comfort no está seleccionada correctamente."
 
-        # Paso 3: Rellenar número de teléfono
+    def test_fill_telefono(self):
+        self.driver.get("URL_DE_TU_APLICACION")
+        routes_page = UrbanRoutesPage(self.driver)
         phone_number = "123456789"
         routes_page.fill_telefono(phone_number)
+        # Verifica que el número de teléfono se haya ingresado correctamente
+        entered_phone = routes_page.driver.find_element(*self.telefono_input).get_attribute("value")
+        assert entered_phone == phone_number, f"El número de teléfono ingresado es {entered_phone}, debería ser {phone_number}."
 
-        # Paso 4: Agregar tarjeta
-        cvv_code = "123"  # Suponiendo que el código CVV es "123"
+    def test_agregar_tarjeta(self):
+        self.driver.get("URL_DE_TU_APLICACION")
+        routes_page = UrbanRoutesPage(self.driver)
+        cvv_code = "123"
         routes_page.agregar_tarjeta(cvv_code)
+        # Verifica si el campo de CVV perdió el enfoque correctamente (puedes verificar si el campo CVV ya no está enfocado)
+        cvv_value = routes_page.driver.find_element(*self.cvv_input).get_attribute("value")
+        assert cvv_value == cvv_code, f"El código CVV ingresado es {cvv_value}, debería ser {cvv_code}."
 
-        # Paso 5: Escribir mensaje
+    def test_write_mensaje(self):
+        self.driver.get("URL_DE_TU_APLICACION")
+        routes_page = UrbanRoutesPage(self.driver)
         message = "Necesito un taxi urgente"
         routes_page.write_mensaje(message)
+        # Verifica que el mensaje se haya escrito correctamente
+        entered_message = routes_page.driver.find_element(*self.mensaje_input).get_attribute("value")
+        assert entered_message == message, f"El mensaje ingresado es {entered_message}, debería ser {message}."
 
-        # Paso 6: Pedir manta y pañuelos
+    def test_pedir_manta_y_pañuelos(self):
+        self.driver.get("URL_DE_TU_APLICACION")
+        routes_page = UrbanRoutesPage(self.driver)
         routes_page.pedir_manta_y_pañuelos()
+        # Verifica que los checkboxes de manta y pañuelos estén seleccionados
+        manta_selected = self.driver.find_element(*self.manta_checkbox).is_selected()
+        pañuelos_selected = self.driver.find_element(*self.pañuelos_checkbox).is_selected()
+        assert manta_selected, "La manta no fue seleccionada."
+        assert pañuelos_selected, "Los pañuelos no fueron seleccionados."
 
-        # Paso 7: Pedir 2 helados
-        routes_page.pedir_helados(2)
+    def test_pedir_helados(self):
+        self.driver.get("URL_DE_TU_APLICACION")
+        routes_page = UrbanRoutesPage(self.driver)
+        cantidad_helados = 2
+        routes_page.pedir_helados(cantidad_helados)
+        # Verifica que la cantidad de helados ingresada sea la correcta
+        helados_quantity = routes_page.driver.find_element(*self.helados_input).get_attribute("value")
+        assert helados_quantity == str(cantidad_helados), f"La cantidad de helados ingresada es {helados_quantity}, debería ser {cantidad_helados}."
 
-        # Paso 8: Esperar modal de búsqueda de taxi
+    def test_esperar_modal_taxi(self):
+        self.driver.get("URL_DE_TU_APLICACION")
+        routes_page = UrbanRoutesPage(self.driver)
         assert routes_page.esperar_modal_taxi()
 
-        # Paso 9: Esperar información del conductor
+    def test_esperar_info_conductor(self):
+        self.driver.get("URL_DE_TU_APLICACION")
+        routes_page = UrbanRoutesPage(self.driver)
         assert routes_page.esperar_info_conductor()
-
-
-
 
     @classmethod
     def teardown_class(cls):
